@@ -20,22 +20,6 @@ self.addEventListener('install', (event) => {
                 }));
             })
     );
-    self.skipWaiting();
-});
-
-self.addEventListener('activate', (event) => {
-    event.waitUntil(
-        caches.keys().then((cacheNames) => {
-            return Promise.all(
-                cacheNames.map((cacheName) => {
-                    if (cacheName !== CACHE_NAME) {
-                        return caches.delete(cacheName);
-                    }
-                })
-            );
-        })
-    );
-    self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
@@ -45,13 +29,14 @@ self.addEventListener('fetch', (event) => {
                 if (response) {
                     return response;
                 }
-
                 return fetch(event.request)
                     .then(response => {
+                        // Check if we received a valid response
                         if (!response || response.status !== 200 || response.type !== 'basic') {
                             return response;
                         }
 
+                        // Clone the response
                         const responseToCache = response.clone();
 
                         caches.open(CACHE_NAME)
@@ -60,10 +45,6 @@ self.addEventListener('fetch', (event) => {
                             });
 
                         return response;
-                    })
-                    .catch(() => {
-                        // Return a custom offline page or fallback content
-                        return caches.match('/index.html');
                     });
             })
     );

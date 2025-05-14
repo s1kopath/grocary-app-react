@@ -1,74 +1,185 @@
 import React, { useState, useEffect } from 'react';
 
 const GroceryList = () => {
-    // Initialize state with data from localStorage
-    const [items, setItems] = useState(() => {
-        const savedItems = localStorage.getItem('groceryItems');
-        return savedItems ? JSON.parse(savedItems) : [];
-    });
-
+    const [lists, setLists] = useState([]);
+    const [currentList, setCurrentList] = useState(null);
     const [newItem, setNewItem] = useState('');
+    const [newListName, setNewListName] = useState('');
 
-    // Save to localStorage whenever items change
     useEffect(() => {
-        localStorage.setItem('groceryItems', JSON.stringify(items));
-    }, [items]);
+        const savedLists = localStorage.getItem('groceryLists');
+        if (savedLists) {
+            const parsedLists = JSON.parse(savedLists);
+            setLists(parsedLists);
+            if (parsedLists.length > 0) {
+                setCurrentList(parsedLists[0].id);
+            }
+        }
+    }, []);
 
-    const handleAddItem = (e) => {
+    const createNewList = (e) => {
         e.preventDefault();
-        if (!newItem.trim()) return;
-        
+        if (!newListName.trim()) return;
+
+        const newList = {
+            id: Date.now(),
+            name: newListName,
+            date: new Date().toISOString(),
+            items: []
+        };
+
+        const updatedLists = [...lists, newList];
+        setLists(updatedLists);
+        setCurrentList(newList.id);
+        setNewListName('');
+        localStorage.setItem('groceryLists', JSON.stringify(updatedLists));
+    };
+
+    const addItem = (e) => {
+        e.preventDefault();
+        if (!newItem.trim() || !currentList) return;
+
         const item = {
             id: Date.now(),
             name: newItem,
             completed: false
         };
-        
-        setItems([...items, item]);
+
+        const updatedLists = lists.map(list =>
+            list.id === currentList
+                ? { ...list, items: [...list.items, item] }
+                : list
+        );
+
+        setLists(updatedLists);
+        localStorage.setItem('groceryLists', JSON.stringify(updatedLists));
         setNewItem('');
     };
 
-    const handleDeleteItem = (id) => {
-        setItems(items.filter(item => item.id !== id));
+    const toggleItem = (listId, itemId) => {
+        const updatedLists = lists.map(list =>
+            list.id === listId
+                ? {
+                    ...list,
+                    items: list.items.map(item =>
+                        item.id === itemId
+                            ? { ...item, completed: !item.completed }
+                            : item
+                    )
+                }
+                : list
+        );
+
+        setLists(updatedLists);
+        localStorage.setItem('groceryLists', JSON.stringify(updatedLists));
     };
 
-    const toggleComplete = (id) => {
-        setItems(items.map(item => 
-            item.id === id ? { ...item, completed: !item.completed } : item
-        ));
+    const deleteItem = (listId, itemId) => {
+        const updatedLists = lists.map(list =>
+            list.id === listId
+                ? {
+                    ...list,
+                    items: list.items.filter(item => item.id !== itemId)
+                }
+                : list
+        );
+
+        setLists(updatedLists);
+        localStorage.setItem('groceryLists', JSON.stringify(updatedLists));
     };
+
+    const deleteList = (listId) => {
+        const updatedLists = lists.filter(list => list.id !== listId);
+        setLists(updatedLists);
+        if (currentList === listId && updatedLists.length > 0) {
+            setCurrentList(updatedLists[0].id);
+        }
+        localStorage.setItem('groceryLists', JSON.stringify(updatedLists));
+    };
+
+    const getCurrentList = () => lists.find(list => list.id === currentList);
 
     return (
-        <div className="grocery-list">
-            <form onSubmit={handleAddItem}>
-                <input
-                    type="text"
-                    value={newItem}
-                    onChange={(e) => setNewItem(e.target.value)}
-                    placeholder="Add new item..."
-                />
-                <button type="submit">Add Item</button>
-            </form>
+        <div className="grocery-app">
+            <h1>🛒 My Grocery</h1>
 
-            <ul>
-                {items.map(item => (
-                    <li key={item.id}>
-                        <input
-                            type="checkbox"
-                            checked={item.completed}
-                            onChange={() => toggleComplete(item.id)}
-                        />
-                        <span style={{ 
-                            textDecoration: item.completed ? 'line-through' : 'none' 
-                        }}>
-                            {item.name}
-                        </span>
-                        <button onClick={() => handleDeleteItem(item.id)}>
-                            Delete
-                        </button>
-                    </li>
-                ))}
-            </ul>
+            <div className="list-creation">
+                <form onSubmit={createNewList}>
+                    <input
+                        type="text"
+                        value={newListName}
+                        onChange={(e) => setNewListName(e.target.value)}
+                        placeholder="Enter new list name..."
+                    />
+                    <button type="submit">Create New List</button>
+                </form>
+            </div>
+
+            <div className="lists-container">
+                <div className="lists-sidebar">
+                    {lists.map(list => (
+                        <div
+                            key={list.id}
+                            className={`list-tab ${currentList === list.id ? 'active' : ''}`}
+                            onClick={() => setCurrentList(list.id)}
+                        >
+                            <span>{list.name}</span>
+                            <span className="list-date">
+                                {new Date(list.date).toLocaleDateString()}
+                            </span>
+                            <button
+                                className="delete-list"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteList(list.id);
+                                }}
+                            >
+                                ×
+                            </button>
+                        </div>
+                    ))}
+                </div>
+
+                {currentList && getCurrentList() && (
+                    <div className="current-list">
+                        <h2>{getCurrentList().name}</h2>
+
+                        <form onSubmit={addItem}>
+                            <input
+                                type="text"
+                                value={newItem}
+                                onChange={(e) => setNewItem(e.target.value)}
+                                placeholder="Add new item..."
+                            />
+                            <button type="submit">Add Item</button>
+                        </form>
+
+                        {getCurrentList().items.length === 0 ? (
+                            <div className="empty-state">
+                                <p>This list is empty. Add some items to get started! 🛍️</p>
+                            </div>
+                        ) : (
+                            <ul>
+                                {getCurrentList().items.map(item => (
+                                    <li key={item.id}>
+                                        <input
+                                            type="checkbox"
+                                            checked={item.completed}
+                                            onChange={() => toggleItem(currentList, item.id)}
+                                        />
+                                        <span className={item.completed ? 'completed' : ''}>
+                                            {item.name}
+                                        </span>
+                                        <button onClick={() => deleteItem(currentList, item.id)}>
+                                            Delete
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
