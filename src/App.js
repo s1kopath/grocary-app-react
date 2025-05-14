@@ -5,7 +5,12 @@ import GroceryList from './components/GroceryList';
 function App() {
   return (
     <div className="App">
-      <GroceryList />
+      <header className="App-header">
+        <h1>Grocery List</h1>
+      </header>
+      <main>
+        <GroceryList />
+      </main>
     </div>
   );
 }
